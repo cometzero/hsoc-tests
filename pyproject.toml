@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apollo-validation"
+version = "0.1.0"
+description = "Apollo FVP validation orchestration for Arm Auto Solutions"
+requires-python = ">=3.10"
+readme = "README.md"
+
+[tool.setuptools.packages.find]
+include = ["apollo_validation*"]
+
+[tool.setuptools.package-data]
+apollo_validation = ["suites/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

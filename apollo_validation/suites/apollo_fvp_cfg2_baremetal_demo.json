@@ -1,0 +1,84 @@
+{
+  "profile": "apollo-fvp-cfg2-baremetal-demo",
+  "machine": "apollo-fvp",
+  "rd_aspen_variant": "cfg2",
+  "pc_cpus_count_default": 4,
+  "categories": {
+    "basic": [
+      {
+        "name": "one_boot_marker_scan",
+        "source": "scripts/run/runfvp_log_boot.py",
+        "timeout_s": 300,
+        "markers": [
+          "Starting TF-M BL1_1",
+          "Jumping to BL2",
+          "RSE to SCP SCMI power on AP succeeded",
+          "SSU initialized",
+          "Module initialization complete",
+          "U-Boot ",
+          "Booting Linux on physical CPU",
+          "Linux version",
+          "apollo-fvp login:",
+          "NOTICE:  BL2:",
+          "NOTICE:  BL31:",
+          "*** Booting Zephyr OS build"
+        ]
+      }
+    ],
+    "functional": [
+      {"name": "test_00_rse", "source": "arm-zena-css OEQA"},
+      {"name": "test_00_secure_partition", "source": "arm-zena-css OEQA"},
+      {"name": "test_01_auto_ad_nexios_uki_boot", "source": "Apollo OEQA"},
+      {"name": "test_02_safety_boot", "source": "arm-zena-css OEQA"},
+      {"name": "test_10_linuxboot", "source": "meta-arm OEQA"},
+      {"name": "test_10_linuxlogin", "source": "sw-ref-stack pytest"},
+      {"name": "test_10_ping", "source": "sw-ref-stack pytest"},
+      {"name": "test_10_ssh", "source": "sw-ref-stack pytest"},
+      {"name": "test_10_safety_island", "source": "sw-ref-stack pytest", "requires": ["cfg2"]},
+      {"name": "test_10_safetydiagnostics_ssu_fmu", "source": "sw-ref-stack pytest"},
+      {"name": "test_20_aspen_ap_dsu", "source": "arm-zena-css OEQA"},
+      {"name": "test_20_fvp_devices", "source": "meta-arm OEQA"},
+      {"name": "test_30_configurable_pc_cores", "source": "arm-zena-css OEQA"}
+    ],
+    "extended": [
+      {"name": "test_10_pfdi", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_10_ras_cpu", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_10_sbistc_integration", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_40_rse_fw_encryption", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_50_trusted_services", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_50_cryptographic_extension", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_60_cpu_frequency", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_60_cpuidle_cstates", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_99_uefi_secure_boot", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "test_100_fwu", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "tftf", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "tbb", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "qbox-parity", "source": "project-local QBox validation", "default": "disabled"}
+    ],
+    "stress": [
+      {"name": "scmi_reboot_loop", "source": "test_00_rse.test_scmi_reboot", "default": "disabled"},
+      {"name": "scmi_poweroff_loop", "source": "test_00_rse.test_scmi_poweroff", "default": "disabled"},
+      {"name": "warm_reset_loop", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "pfdi_repeat", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "si_pfdi_stress_5x", "source": "test_992_safety_island_pfdi", "default": "disabled"},
+      {"name": "hipc_payload_loop", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "cpu_frequency_long", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "cpu_idle_long", "source": "sw-ref-stack pytest", "default": "disabled"},
+      {"name": "boot_soak", "source": "Apollo validation", "default": "disabled"}
+    ]
+  },
+  "excluded": [
+    {
+      "name": "test_40_virtualization",
+      "reason": "excluded_baremetal_no_xen"
+    },
+    {
+      "name": "test_41_rt_patch_presence",
+      "reason": "excluded_apollo_kernel_removes_xen"
+    },
+    {
+      "name": "domu-lifecycle",
+      "reason": "excluded_baremetal_no_xen_domu"
+    }
+  ]
+}
