@@ -32,4 +32,4 @@ def test_cli_list_json() -> None:
 
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert set(data["categories"]) == {"basic", "functional", "extended", "stress"}
+    assert set(data["categories"]) == {"basic", "functional", "power", "extended", "stress"}

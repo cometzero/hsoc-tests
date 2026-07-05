@@ -40,6 +40,11 @@ def read_records(path: Path) -> list[JsonObject]:
 def summarize_records(run_dir: Path) -> tuple[JsonObject, int]:
     records = read_records(run_dir / "commands.jsonl")
     statuses = [str(record.get("status", "")) for record in records]
+    blockers: list[JsonObject] = []
+    for record in records:
+        record_blockers = record.get("blockers", [])
+        if isinstance(record_blockers, list):
+            blockers.extend(item for item in record_blockers if isinstance(item, dict))
     if any(status == "fail" for status in statuses):
         status = "FAIL"
         exit_code = 1
@@ -55,5 +60,6 @@ def summarize_records(run_dir: Path) -> tuple[JsonObject, int]:
         "run_dir": str(run_dir),
         "records": records,
         "record_count": len(records),
+        "blockers": blockers,
     }
     return summary, exit_code

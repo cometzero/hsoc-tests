@@ -3,14 +3,15 @@
 This repository is intended to be used as the `hsoc-stack/tests` submodule of
 the Arm Auto Solutions workspace.
 
-The validation model is split into four categories:
+The validation model is split into five categories:
 
 - `basic`: one Apollo FVP boot, default 300 second timeout, UART marker checks,
   fatal log scanning, and FVP cleanup.
-- `functional`: current Apollo feature checks based on OEQA and sw-ref-stack
-  pytest suites.
-- `extended`: long-running, image-mutating, or conformance validation such as
-  FWU, UEFI secure boot, trusted services, crypto, CPU frequency, and CPU idle.
+- `functional`: basic boot followed by single-boot Apollo OEQA feature checks.
+- `power`: opt-in FVP power, measured-boot, poweroff, and reboot checks.
+- `extended`: long-running, image-mutating, early-boot BIST marker, or
+  conformance validation such as FWU, UEFI secure boot, trusted services,
+  crypto, CPU frequency, and CPU idle.
 - `stress`: repeated reset, reboot, poweroff, PFDI, HIPC, CPU power/perf, and
   long-soak validation.
 
@@ -28,9 +29,8 @@ PYTHONPATH=hsoc-stack/tests python3 -m apollo_validation.cli run \
   --out-dir build/tests/basic-smoke
 
 PYTHONPATH=hsoc-stack/tests python3 -m apollo_validation.cli run \
-  --category functional --dry-run --root . --build-dir build \
-  --out-dir build/tests/functional-dry-run
+  --category functional --root . --build-dir build \
+  --out-dir build/tests/functional
 ```
 
-The top-level `run_test.sh` wrapper delegates through this submodule while the
-legacy runner remains available for compatibility.
+The top-level `run_test.sh` wrapper delegates through this submodule.

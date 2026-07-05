@@ -26,10 +26,9 @@
       }
     ],
     "functional": [
-      {"name": "test_00_rse", "source": "arm-zena-css OEQA"},
+      {"name": "test_00_rse.RseTest.test_normal_boot", "source": "arm-zena-css OEQA"},
       {"name": "test_00_secure_partition", "source": "arm-zena-css OEQA"},
       {"name": "test_01_auto_ad_nexios_uki_boot", "source": "Apollo OEQA"},
-      {"name": "test_02_safety_boot", "source": "arm-zena-css OEQA"},
       {"name": "test_10_linuxboot", "source": "meta-arm OEQA"},
       {"name": "test_10_linuxlogin", "source": "sw-ref-stack pytest"},
       {"name": "test_10_ping", "source": "sw-ref-stack pytest"},
@@ -40,7 +39,15 @@
       {"name": "test_20_fvp_devices", "source": "meta-arm OEQA"},
       {"name": "test_30_configurable_pc_cores", "source": "arm-zena-css OEQA"}
     ],
+    "power": [
+      {"name": "test_00_rse.RseTest.test_measured_boot", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "test_00_rse.RseTest.test_scmi_poweroff", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "test_00_rse.RseTest.test_scmi_reboot", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "fvp_boot", "source": "meta-arm OEQA", "default": "disabled"}
+    ],
     "extended": [
+      {"name": "test_02_safety_boot.TestSafetyBoot.test_lbist", "source": "arm-zena-css OEQA", "default": "disabled"},
+      {"name": "test_02_safety_boot.TestSafetyBoot.test_mbist", "source": "arm-zena-css OEQA", "default": "disabled"},
       {"name": "test_10_pfdi", "source": "sw-ref-stack pytest", "default": "disabled"},
       {"name": "test_10_ras_cpu", "source": "sw-ref-stack pytest", "default": "disabled"},
       {"name": "test_10_sbistc_integration", "source": "sw-ref-stack pytest", "default": "disabled"},
@@ -56,8 +63,8 @@
       {"name": "qbox-parity", "source": "project-local QBox validation", "default": "disabled"}
     ],
     "stress": [
-      {"name": "scmi_reboot_loop", "source": "test_00_rse.test_scmi_reboot", "default": "disabled"},
-      {"name": "scmi_poweroff_loop", "source": "test_00_rse.test_scmi_poweroff", "default": "disabled"},
+      {"name": "scmi_reboot_loop", "source": "test_00_rse.RseTest.test_scmi_reboot", "default": "disabled"},
+      {"name": "scmi_poweroff_loop", "source": "test_00_rse.RseTest.test_scmi_poweroff", "default": "disabled"},
       {"name": "warm_reset_loop", "source": "sw-ref-stack pytest", "default": "disabled"},
       {"name": "pfdi_repeat", "source": "sw-ref-stack pytest", "default": "disabled"},
       {"name": "si_pfdi_stress_5x", "source": "test_992_safety_island_pfdi", "default": "disabled"},

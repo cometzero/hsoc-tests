@@ -67,7 +67,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     list_cmd.add_argument("--profile", default=DEFAULT_PROFILE)
     list_cmd.add_argument(
         "--category",
-        choices=("basic", "functional", "extended", "stress"),
+        choices=("basic", "functional", "power", "extended", "stress"),
         default=None,
     )
     list_cmd.add_argument("--format", choices=("json", "text"), default="text")
@@ -75,11 +75,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     list_cmd.set_defaults(func=cmd_list)
 
     run = subparsers.add_parser("run", help="Run a validation category")
-    run.add_argument("--category", choices=("basic", "functional", "extended", "stress"), required=True)
+    run.add_argument("--category", choices=("basic", "functional", "power", "extended", "stress"), required=True)
     run.add_argument("--root", type=Path, default=Path("."))
     run.add_argument("--build-dir", type=Path, default=Path("build"))
     run.add_argument("--machine", default="apollo-fvp")
+    run.add_argument("--image", default="nexios-image")
     run.add_argument("--timeout", type=int, default=300)
+    run.add_argument("--timeout-oeqa", type=int, default=10800)
     run.add_argument("--out-dir", type=Path, required=True)
     run.add_argument("--dry-run", action="store_true")
     run.set_defaults(func=cmd_run)
