@@ -10,7 +10,11 @@ JsonObject = dict[str, Any]
 
 
 def now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def run_log(message: str) -> None:
+    print(f"[{now()}] [run_test] {message}", flush=True)
 
 
 def write_json(path: Path, data: JsonObject) -> None:

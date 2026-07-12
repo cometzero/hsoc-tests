@@ -74,6 +74,63 @@
       {"name": "boot_soak", "source": "Apollo validation", "default": "disabled"}
     ]
   },
+  "test_dependencies": {
+    "test_00_rse.RseTest.test_measured_boot": [
+      "test_00_rse.RseTest.test_normal_boot"
+    ],
+    "test_00_rse.RseTest.test_scmi_poweroff": [
+      "test_00_rse.RseTest.test_measured_boot"
+    ],
+    "test_00_rse.RseTest.test_scmi_reboot": [
+      "test_00_rse.RseTest.test_measured_boot"
+    ],
+    "test_01_auto_ad_nexios_uki_boot": ["ssh.SSHTest.test_ssh"],
+    "test_10_linuxlogin": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
+    "test_10_ping": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
+    "test_10_ssh": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
+    "test_10_safetydiagnostics_ssu_fmu": [
+      "test_10_linuxboot.LinuxBootTest.test_linux_boot"
+    ],
+    "test_20_aspen_ap_dsu": ["ssh.SSHTest.test_ssh"],
+    "test_20_fvp_devices": ["test_10_ssh.ArmAutoSolutionsSSHTest.test_ssh"],
+    "test_30_configurable_pc_cores": ["ssh.SSHTest.test_ssh"],
+    "test_10_pfdi": ["test_10_linuxlogin.LinuxLoginTest.test_linux_login"],
+    "test_50_trusted_services": ["test_10_ssh.ArmAutoSolutionsSSHTest.test_ssh"],
+    "test_50_cryptographic_extension": [
+      "test_10_linuxlogin.LinuxLoginTest.test_linux_login"
+    ],
+    "test_60_cpu_frequency": ["test_10_linuxlogin.LinuxLoginTest.test_linux_login"],
+    "test_60_cpuidle_cstates": ["test_10_linuxlogin.LinuxLoginTest.test_linux_login"],
+    "test_100_fwu": ["test_10_linuxlogin.LinuxLoginTest.test_linux_login"],
+    "ssh.SSHTest.test_ssh": ["ping.PingTest.test_ping"],
+    "test_10_ssh.ArmAutoSolutionsSSHTest.test_ssh": [
+      "test_10_linuxboot.LinuxBootTest.test_linux_boot"
+    ],
+    "test_10_linuxlogin.LinuxLoginTest.test_linux_login": [
+      "test_10_linuxboot.LinuxBootTest.test_linux_boot"
+    ]
+  },
+  "dependency_categories": {
+    "ping.PingTest.test_ping": "functional",
+    "ssh.SSHTest.test_ssh": "functional",
+    "test_10_linuxboot.LinuxBootTest.test_linux_boot": "functional",
+    "test_10_ssh.ArmAutoSolutionsSSHTest.test_ssh": "functional",
+    "test_10_linuxlogin.LinuxLoginTest.test_linux_login": "functional"
+  },
+  "unselectable": [
+    "qbox-parity",
+    "tftf",
+    "tbb",
+    "scmi_reboot_loop",
+    "scmi_poweroff_loop",
+    "warm_reset_loop",
+    "pfdi_repeat",
+    "si_pfdi_stress_5x",
+    "hipc_payload_loop",
+    "cpu_frequency_long",
+    "cpu_idle_long",
+    "boot_soak"
+  ],
   "excluded": [
     {
       "name": "test_40_virtualization",

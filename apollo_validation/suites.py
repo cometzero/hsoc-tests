@@ -36,5 +36,8 @@ def list_suites(profile: str = DEFAULT_PROFILE, category: str | None = None) -> 
         "rd_aspen_variant": data.get("rd_aspen_variant", "cfg2"),
         "pc_cpus_count_default": data.get("pc_cpus_count_default", 4),
         "categories": categories,
+        "test_dependencies": data.get("test_dependencies", {}),
+        "dependency_categories": data.get("dependency_categories", {}),
+        "unselectable": data.get("unselectable", []),
         "excluded": data.get("excluded", []),
     }

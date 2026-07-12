@@ -11,17 +11,13 @@ from time import monotonic
 from typing import Any
 
 from .context import inspect_context
-from .evidence import append_record, now, summarize_records, write_json
+from .evidence import append_record, now, run_log as _log, summarize_records, write_json
 from .suites import list_suites
 
 
 JsonObject = dict[str, Any]
 PYTHON = "python3"
 HOST_PYTHON_ENV = "RUN_TEST_HOST_PYTHON_BIN"
-
-
-def _log(message: str) -> None:
-    print(f"[run_test] {message}", flush=True)
 
 
 def _status_from_rc(rc: int) -> str:
@@ -317,7 +313,7 @@ def run_basic(
         "--out",
         str(preflight_json),
     ]
-    _log("START basic-preflight")
+    _log("START runtime-preflight")
     started = now()
     start = monotonic()
     preflight_rc = _run_subprocess(preflight_argv, root, preflight_stdout, preflight_stderr)
@@ -327,7 +323,7 @@ def run_basic(
     if preflight_rc != 0:
         _record_command(
             commands_file,
-            "basic-preflight",
+            "runtime-preflight",
             preflight_argv,
             "blocked",
             started,
@@ -338,12 +334,12 @@ def run_basic(
             artifacts=[{"kind": "preflight", "path": str(preflight_json)}],
             blockers=preflight_data.get("blockers", []),
         )
-        _log("DONE basic-preflight (blocked)")
+        _log("DONE runtime-preflight (blocked)")
         _write_summary(out_dir)
         return 2
     _record_command(
         commands_file,
-        "basic-preflight",
+        "runtime-preflight",
         preflight_argv,
         "pass",
         started,
@@ -353,11 +349,11 @@ def run_basic(
         preflight_stderr,
         artifacts=[{"kind": "preflight", "path": str(preflight_json)}],
     )
-    _log("DONE basic-preflight (pass)")
+    _log("DONE runtime-preflight (pass)")
     if preflight_only:
         return _write_summary(out_dir)
 
-    fvp_out = out_dir / "fvp"
+    boot_out = out_dir / "fvp"
     basic_argv = [
         PYTHON,
         "scripts/run/runfvp_log_boot.py",
@@ -365,11 +361,14 @@ def run_basic(
         machine,
         "--timeout",
         str(timeout),
+        "--min-runtime",
+        str(min(70, timeout)),
         "--out-dir",
-        str(fvp_out),
+        str(boot_out),
         "--require",
         "all",
-        "--no-login",
+        "--post-login-command",
+        "true",
     ]
     if dry_run:
         _log("SKIP basic-boot (dry-run)")
@@ -387,7 +386,7 @@ def run_basic(
     stdout_log = out_dir / "logs/basic-boot.stdout.log"
     stderr_log = out_dir / "logs/basic-boot.stderr.log"
     _log("START basic-boot")
-    _log(f"PROGRESS basic-boot: logs under {fvp_out}")
+    _log(f"PROGRESS basic-boot: logs under {boot_out}")
     started = now()
     start = monotonic()
     rc = _run_subprocess(
@@ -395,9 +394,9 @@ def run_basic(
         root,
         stdout_log,
         stderr_log,
-        [str(fvp_out.resolve())],
+        [str(boot_out.resolve())],
     )
-    result_json = fvp_out / "result.json"
+    result_json = boot_out / "result.json"
     status = _status_from_rc(rc)
     _record_command(
         commands_file,
@@ -411,10 +410,10 @@ def run_basic(
         stderr_log,
         artifacts=[
             {"kind": "fvp_result", "path": str(result_json)},
-            {"kind": "fvp_summary", "path": str(fvp_out / "summary.txt")},
+            {"kind": "fvp_summary", "path": str(boot_out / "summary.txt")},
         ],
     )
-    _print_boot_summary(fvp_out / "summary.txt")
+    _print_boot_summary(boot_out / "summary.txt")
     _log(f"DONE basic-boot ({status})")
     return _write_summary(out_dir)
 
@@ -422,6 +421,7 @@ def run_basic(
 def _run_oeqa(
     root: Path,
     build_dir: Path,
+    machine: str,
     image: str,
     timeout_oeqa: int,
     out_dir: Path,
@@ -438,6 +438,8 @@ def _run_oeqa(
         str(out_dir / "commands.jsonl"),
         "--build-dir",
         str(build_dir),
+        "--machine",
+        machine,
         "--image",
         image,
         "--timeout-oeqa",
@@ -477,21 +479,22 @@ def run_functional(
     dry_run: bool,
     preflight_only: bool = False,
 ) -> int:
-    boot_rc = run_basic(root, build_dir, machine, timeout_fvp, out_dir, dry_run, preflight_only)
-    if boot_rc != 0 or preflight_only:
-        return boot_rc
+    preflight_rc = run_basic(root, build_dir, machine, timeout_fvp, out_dir, dry_run, True)
+    if preflight_rc != 0 or preflight_only:
+        return preflight_rc
     host_python = None if dry_run else _select_host_python(out_dir)
     if host_python is None and not dry_run:
         return _write_summary(out_dir)
     oeqa_rc = _run_oeqa(
         root,
         build_dir,
+        machine,
         image,
         timeout_oeqa,
         out_dir,
         dry_run,
         host_python,
-        ["functional"],
+        [os.environ.get("APOLLO_VALIDATION_OEQA_KIND", "functional")],
     )
     if oeqa_rc == 70:
         return 70
@@ -518,6 +521,7 @@ def run_power(
     oeqa_rc = _run_oeqa(
         root,
         build_dir,
+        machine,
         image,
         timeout_oeqa,
         out_dir,

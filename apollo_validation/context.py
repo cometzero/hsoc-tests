@@ -120,7 +120,7 @@ def inspect_context(root: Path, build_dir: Path, machine: str) -> JsonObject:
         )
     return {
         "status": status,
-        "machine": local_conf.get("MACHINE") or _str(testdata, "MACHINE", machine),
+        "machine": machine,
         "distro": distro,
         "rd_aspen_variant": local_conf.get("RD_ASPEN_VARIANT")
         or _str(testdata, "RD_ASPEN_VARIANT", "cfg2"),
