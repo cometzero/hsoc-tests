@@ -28,7 +28,7 @@
     "functional": [
       {"name": "test_00_rse.RseTest.test_normal_boot", "source": "arm-zena-css OEQA"},
       {"name": "test_00_secure_partition", "source": "arm-zena-css OEQA"},
-      {"name": "test_01_auto_ad_nexios_uki_boot", "source": "Apollo OEQA"},
+      {"name": "test_00_apollo_uki_boot", "source": "Apollo OEQA"},
       {"name": "test_10_linuxboot", "source": "meta-arm OEQA"},
       {"name": "test_10_linuxlogin", "source": "sw-ref-stack pytest"},
       {"name": "test_10_ping", "source": "sw-ref-stack pytest"},
@@ -84,7 +84,10 @@
     "test_00_rse.RseTest.test_scmi_reboot": [
       "test_00_rse.RseTest.test_measured_boot"
     ],
-    "test_01_auto_ad_nexios_uki_boot": ["ssh.SSHTest.test_ssh"],
+    "test_00_apollo_uki_boot": [
+      "test_00_linux_boot.LinuxBootTest.test_linux_boot",
+      "test_60_linux_connectivity.LinuxConnectivityTest.test_ssh"
+    ],
     "test_10_linuxlogin": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
     "test_10_ping": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
     "test_10_ssh": ["test_10_linuxboot.LinuxBootTest.test_linux_boot"],
