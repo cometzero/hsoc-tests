@@ -69,3 +69,51 @@ def test_context_blocks_when_artifacts_are_missing(tmp_path: Path) -> None:
 
     assert result["status"] == "blocked"
     assert {blocker["name"] for blocker in result["blockers"]} == {"testdata", "fvpconf"}
+
+
+def test_context_selects_bsp_image_artifacts(tmp_path: Path) -> None:
+    # Given: a BSP-only deploy containing no product-image artifacts.
+    conf = tmp_path / "build/conf"
+    conf.mkdir(parents=True)
+    (conf / "local.conf").write_text(
+        '\n'.join(
+            [
+                'MACHINE = "apollo-fvp"',
+                'TMPDIR = "${TOPDIR}/tmp_baremetal"',
+                'DISTRO = "auto-ad-nexios"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (conf / "bblayers.conf").write_text("", encoding="utf-8")
+    (conf / "templateconf.cfg").write_text("template\n", encoding="utf-8")
+    distro = tmp_path / "hsoc-stack/yocto/meta-hsoc-auto-solutions/conf/distro"
+    distro.mkdir(parents=True)
+    (distro / "auto-ad-nexios.conf").write_text("", encoding="utf-8")
+    deploy = tmp_path / "build/tmp_baremetal/deploy/images/apollo-fvp"
+    deploy.mkdir(parents=True)
+    stem = deploy / "nexios-bsp-initramfs-apollo-fvp"
+    stem.with_suffix(".testdata.json").write_text(
+        json.dumps({"TEST_TARGET": "HSOCBSPFVPTarget"}),
+        encoding="utf-8",
+    )
+    stem.with_suffix(".fvpconf").write_text(
+        json.dumps({"exe": "FVP_Zena_CSS_Cfg2"}),
+        encoding="utf-8",
+    )
+
+    # When: context inspection is scoped to the BSP image.
+    result = inspect_context(
+        tmp_path,
+        Path("build"),
+        "apollo-fvp",
+        "nexios-bsp-initramfs",
+    )
+
+    # Then: it resolves only the BSP testdata and FVP configuration.
+    assert result["status"] == "ok"
+    assert result["image"] == "nexios-bsp-initramfs"
+    assert result["testdata_path"].endswith(
+        "nexios-bsp-initramfs-apollo-fvp.testdata.json"
+    )

@@ -8,12 +8,14 @@ import os
 from pathlib import Path
 
 from .evidence import append_record, now, write_json
+from .profiles import load_test_profile
 from .root_cli import RootOptions
 from .suites import list_suites
 
 
 SELECTED_SUITES_ENV = "APOLLO_VALIDATION_TEST_SUITES"
 SELECTED_KIND_ENV = "APOLLO_VALIDATION_OEQA_KIND"
+SELECTED_TARGET_ENV = "APOLLO_VALIDATION_TEST_TARGET"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +41,11 @@ class TestSelection:
     oeqa_kind: str | None
     requested: tuple[str, ...]
     ordered_tests: tuple[str, ...]
+    profile_name: str | None = None
+    profile_path: Path | None = None
+    test_target: str | None = None
+    backend: str | None = None
+    image_profile: str | None = None
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -47,6 +54,11 @@ class TestSelection:
             "oeqa_kind": self.oeqa_kind,
             "requested": list(self.requested),
             "ordered_tests": list(self.ordered_tests),
+            "profile_name": self.profile_name,
+            "profile_path": str(self.profile_path) if self.profile_path else None,
+            "test_target": self.test_target,
+            "backend": self.backend,
+            "image_profile": self.image_profile,
         }
 
 
@@ -151,7 +163,45 @@ def resolve_selection(test_name: str, explicit_category: str | None) -> TestSele
     )
 
 
-def prepare_selection(options: RootOptions) -> tuple[TestSelection | None, RootOptions]:
+def prepare_selection(
+    root: Path,
+    options: RootOptions,
+) -> tuple[TestSelection | None, RootOptions]:
+    if options.test_name is not None and options.test_profile is not None:
+        raise SelectionError("--test cannot be combined with --test-profile")
+    if options.test_profile is not None:
+        if options.list_suites:
+            raise SelectionError("--test-profile cannot be combined with --list")
+        profile = load_test_profile(
+            root,
+            options.test_profile,
+            options.backend,
+            options.image_profile,
+        )
+        timeout_oeqa = (
+            options.timeout_oeqa
+            if options.timeout_oeqa_requested
+            else profile.timeout_seconds
+        )
+        return (
+            TestSelection(
+                category="profile",
+                execution_category="functional",
+                oeqa_kind=profile.oeqa_kind,
+                requested=(profile.name,),
+                ordered_tests=profile.selectors,
+                profile_name=profile.name,
+                profile_path=profile.path,
+                test_target=profile.test_target,
+                backend=profile.backend,
+                image_profile=profile.image_profile,
+            ),
+            replace(
+                options,
+                category="functional",
+                timeout_oeqa=timeout_oeqa,
+            ),
+        )
     if options.test_name is None:
         return None, options
     if options.list_suites:
@@ -164,6 +214,19 @@ def prepare_selection(options: RootOptions) -> tuple[TestSelection | None, RootO
 def write_selection_evidence(run_dir: Path, selection: TestSelection) -> None:
     selection_path = run_dir / "selection.json"
     write_json(selection_path, selection.as_json())
+    profile_snapshot: Path | None = None
+    if selection.profile_path is not None:
+        profile_snapshot = run_dir / "resolved-profile.yaml"
+        profile_data = selection.as_json()
+        profile_snapshot.write_text(
+            json.dumps(profile_data, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    artifacts = [{"kind": "selection", "path": str(selection_path)}]
+    if profile_snapshot is not None:
+        artifacts.append(
+            {"kind": "resolved_profile", "path": str(profile_snapshot)}
+        )
     append_record(
         run_dir / "commands.jsonl",
         {
@@ -173,7 +236,7 @@ def write_selection_evidence(run_dir: Path, selection: TestSelection) -> None:
             "started_at": now(),
             "finished_at": now(),
             "required": True,
-            "artifacts": [{"kind": "selection", "path": str(selection_path)}],
+            "artifacts": artifacts,
         },
     )
 
@@ -182,10 +245,13 @@ def write_selection_evidence(run_dir: Path, selection: TestSelection) -> None:
 def selected_test_environment(selection: TestSelection | None) -> Iterator[None]:
     previous_suites = os.environ.get(SELECTED_SUITES_ENV)
     previous_kind = os.environ.get(SELECTED_KIND_ENV)
+    previous_target = os.environ.get(SELECTED_TARGET_ENV)
     try:
         if selection is not None and selection.oeqa_kind is not None:
             os.environ[SELECTED_SUITES_ENV] = json.dumps(selection.ordered_tests)
             os.environ[SELECTED_KIND_ENV] = selection.oeqa_kind
+        if selection is not None and selection.test_target is not None:
+            os.environ[SELECTED_TARGET_ENV] = selection.test_target
         yield
     finally:
         if previous_suites is None:
@@ -196,3 +262,7 @@ def selected_test_environment(selection: TestSelection | None) -> Iterator[None]
             os.environ.pop(SELECTED_KIND_ENV, None)
         else:
             os.environ[SELECTED_KIND_ENV] = previous_kind
+        if previous_target is None:
+            os.environ.pop(SELECTED_TARGET_ENV, None)
+        else:
+            os.environ[SELECTED_TARGET_ENV] = previous_target

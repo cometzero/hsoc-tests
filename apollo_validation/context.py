@@ -77,7 +77,12 @@ def _tmpdir_path(build_dir: Path, tmpdir: str) -> Path:
     return build_dir / tmpdir
 
 
-def inspect_context(root: Path, build_dir: Path, machine: str) -> JsonObject:
+def inspect_context(
+    root: Path,
+    build_dir: Path,
+    machine: str,
+    image: str = "nexios-image",
+) -> JsonObject:
     root = root.resolve()
     build_dir = build_dir if build_dir.is_absolute() else root / build_dir
     local_conf = parse_conf(build_dir / "conf/local.conf")
@@ -90,8 +95,8 @@ def inspect_context(root: Path, build_dir: Path, machine: str) -> JsonObject:
     )
     tmpdir = local_conf.get("TMPDIR", "${TOPDIR}/tmp_baremetal")
     deploy_dir = _tmpdir_path(build_dir, tmpdir) / "deploy/images" / machine
-    testdata_path = deploy_dir / f"nexios-image-{machine}.testdata.json"
-    fvpconf_path = deploy_dir / f"nexios-image-{machine}.fvpconf"
+    testdata_path = deploy_dir / f"{image}-{machine}.testdata.json"
+    fvpconf_path = deploy_dir / f"{image}-{machine}.fvpconf"
     testdata = _read_json(testdata_path)
     fvpconf = _read_json(fvpconf_path)
     distro = local_conf.get("DISTRO") or _str(testdata, "DISTRO", "auto-ad-nexios")
@@ -121,6 +126,7 @@ def inspect_context(root: Path, build_dir: Path, machine: str) -> JsonObject:
     return {
         "status": status,
         "machine": machine,
+        "image": image,
         "distro": distro,
         "rd_aspen_variant": local_conf.get("RD_ASPEN_VARIANT")
         or _str(testdata, "RD_ASPEN_VARIANT", "cfg2"),
@@ -129,6 +135,7 @@ def inspect_context(root: Path, build_dir: Path, machine: str) -> JsonObject:
             or _str(testdata, "PC_CPUS_COUNT_DEFAULT", "0")
             or 0
         ),
+        "si_cl1_cpus_count": int(_str(testdata, "SI_CL1_CPUS_COUNT", "4") or 4),
         "tmpdir": tmpdir,
         "extra_image_features": words(
             f"{local_conf.get('EXTRA_IMAGE_FEATURES', '')} "

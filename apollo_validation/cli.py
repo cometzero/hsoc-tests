@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-from .context import inspect_context
-from .evidence import summarize_records, write_json
+from .evidence import write_json, write_reports
 from .root_runner import run_root_compat
 from .runner import run_category, run_context
 from .suites import DEFAULT_PROFILE, list_suites
@@ -39,8 +38,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
-    summary, exit_code = summarize_records(args.run_dir)
-    write_json(args.out, summary)
+    summary, exit_code = write_reports(args.run_dir)
+    if args.out != args.run_dir / "summary.json":
+        write_json(args.out, summary)
     print(args.out)
     return exit_code
 

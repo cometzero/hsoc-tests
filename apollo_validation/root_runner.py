@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+from datetime import UTC, datetime
 import fcntl
+import os
 from pathlib import Path
 import sys
 from typing import TextIO
 
 from .context import inspect_context
-from .evidence import append_record, now, run_log, summarize_records, write_json
+from .evidence import append_record, now, run_log, write_json, write_reports
 from .listing import run_list
+from .run_inputs import capture_run_inputs
 from .root_cli import RootOptions, parse_root_args, print_help
 from .runner import run_category
 from .selection import (
@@ -20,10 +23,15 @@ from .selection import (
 )
 
 
-def _run_dir(root: Path, stamp: str | None, out_dir: Path | None) -> Path:
-    if out_dir is not None:
-        return out_dir if out_dir.is_absolute() else root / out_dir
-    resolved_stamp = stamp if stamp is not None else now().replace(":", "").replace("-", "")
+def _run_dir(root: Path, args: RootOptions) -> Path:
+    if args.out_dir is not None:
+        return args.out_dir if args.out_dir.is_absolute() else root / args.out_dir
+    resolved_stamp = args.stamp or datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    if args.test_profile:
+        resolved_stamp = (
+            f"{resolved_stamp}-{args.backend}-{args.image_profile}-"
+            f"{args.test_profile}"
+        )
     return root / "build/tests" / resolved_stamp
 
 
@@ -61,17 +69,35 @@ def _validate_request(root: Path, build_dir: Path, run_dir: Path) -> str | None:
     return None
 
 
-def _update_latest(root: Path, run_dir: Path) -> None:
+def _replace_latest_link(link: Path, run_dir: Path) -> None:
+    if link.is_symlink() or link.is_file():
+        link.unlink()
+    elif link.exists():
+        return
+    link.symlink_to(run_dir.name)
+
+
+def _update_latest(root: Path, run_dir: Path, summary: dict | None = None) -> None:
     tests_root = root / "build/tests"
     if not _path_is_relative_to(run_dir.resolve(), tests_root.resolve()):
         return
     latest = tests_root / "latest"
     latest.parent.mkdir(parents=True, exist_ok=True)
-    if latest.is_symlink() or latest.is_file():
-        latest.unlink()
-    elif latest.exists():
+    _replace_latest_link(latest, run_dir)
+    if summary is None:
         return
-    latest.symlink_to(run_dir.name)
+    backend = summary.get("backend")
+    image_profile = summary.get("image_profile")
+    test_profile = summary.get("test_profile")
+    if all(isinstance(value, str) and value for value in (
+        backend,
+        image_profile,
+        test_profile,
+    )):
+        _replace_latest_link(
+            tests_root / f"latest-{backend}-{image_profile}-{test_profile}",
+            run_dir,
+        )
 
 
 def _write_internal_result(root: Path, run_dir: Path, reason: str, exit_code: int) -> int:
@@ -94,18 +120,28 @@ def _write_internal_result(root: Path, run_dir: Path, reason: str, exit_code: in
 
 
 def _print_result(root: Path, run_dir: Path) -> int:
-    summary, exit_code = summarize_records(run_dir)
+    summary, exit_code = write_reports(run_dir)
     summary_path = run_dir / "summary.json"
-    write_json(summary_path, summary)
-    _update_latest(root, run_dir)
+    _update_latest(root, run_dir, summary)
     print(f"RESULT: {summary['status']}")
     print(f"SUMMARY: {_relative_to_root(root, summary_path)}")
+    print(f"REPORT: {_relative_to_root(root, run_dir / 'summary.txt')}")
+    print(f"JUNIT: {_relative_to_root(root, run_dir / 'junit.xml')}")
+    print(f"LOGS: {_relative_to_root(root, run_dir / 'logs')}")
     return exit_code
 
 
-def _write_context(root: Path, build_dir: Path, machine: str, run_dir: Path) -> int:
+def _write_context(root: Path, args: RootOptions, run_dir: Path) -> int:
     run_log("START context")
-    context = inspect_context(root, build_dir, machine)
+    context = inspect_context(root, args.build_dir, args.machine, args.image)
+    context.update(
+        {
+            "backend": args.backend,
+            "image_profile": args.image_profile,
+            "test_profile": args.test_profile,
+        }
+    )
+    input_manifest_path = capture_run_inputs(root, run_dir, context)
     manifest_path = run_dir / "manifest.json"
     write_json(manifest_path, context)
     status = "blocked" if context.get("status") == "blocked" else "pass"
@@ -118,7 +154,10 @@ def _write_context(root: Path, build_dir: Path, machine: str, run_dir: Path) -> 
             "started_at": now(),
             "finished_at": now(),
             "required": True,
-            "artifacts": [{"kind": "manifest", "path": str(manifest_path)}],
+            "artifacts": [
+                {"kind": "manifest", "path": str(manifest_path)},
+                {"kind": "input_manifest", "path": str(input_manifest_path)},
+            ],
             "blockers": context.get("blockers", []),
         },
     )
@@ -193,13 +232,13 @@ def run_root_compat(root: Path, argv: list[str]) -> int:
         code = int(exc.code) if isinstance(exc.code, int) else 64
         return 0 if code == 0 else 64
 
-    run_dir = _run_dir(root, args.stamp, args.out_dir)
+    run_dir = _run_dir(root, args)
     rejection = _validate_request(root, args.build_dir, run_dir)
     if rejection is not None:
         print(f"error: {rejection}", file=sys.stderr)
         return 64
     try:
-        selection, selected_args = prepare_selection(args)
+        selection, selected_args = prepare_selection(root, args)
     except SelectionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 64
@@ -208,6 +247,7 @@ def run_root_compat(root: Path, argv: list[str]) -> int:
 
         return run_tui(root, argv, run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["APOLLO_RUN_TEST_LOG"] = str(run_dir / "logs/runner.log")
     run_log("Environment")
     run_log(f"  root: {root}")
     run_log(f"  build_dir: {args.build_dir}")
@@ -222,8 +262,8 @@ def run_root_compat(root: Path, argv: list[str]) -> int:
         run_log(f"  test: {selection.requested[0]}")
         run_log(f"  test_order: {' -> '.join(selection.ordered_tests)}")
     run_log(f"  run_dir: {_relative_to_root(root, run_dir)}")
-    run_log(f"  timeout_oeqa: {args.timeout_oeqa}")
-    run_log(f"  timeout_fvp: {args.timeout_fvp}")
+    run_log(f"  timeout_oeqa: {selected_args.timeout_oeqa}")
+    run_log(f"  timeout_fvp: {selected_args.timeout_fvp}")
 
     context_build_dir = args.build_dir
     requested_conf = root / args.build_dir / "conf/local.conf"
@@ -232,7 +272,11 @@ def run_root_compat(root: Path, argv: list[str]) -> int:
         context_build_dir = Path("build")
         effective_args = replace(selected_args, build_dir=context_build_dir)
     try:
-        context_rc = _write_context(root, context_build_dir, args.machine, run_dir)
+        context_rc = _write_context(
+            root,
+            replace(effective_args, build_dir=context_build_dir),
+            run_dir,
+        )
     except OSError:
         return _write_internal_result(root, run_dir, "blocked_command_record_init_failed", 70)
     if context_rc != 0:
@@ -269,7 +313,7 @@ def run_root_compat(root: Path, argv: list[str]) -> int:
                     "blockers": [{"reason": "blocked_interrupted"}],
                 },
             )
-            run_log(f"DONE category-{args.category} (blocked)")
+            run_log(f"DONE category-{effective_args.category} (blocked)")
     finally:
         if lock_handle is not None:
             lock_handle.close()

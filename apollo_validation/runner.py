@@ -11,7 +11,7 @@ from time import monotonic
 from typing import Any
 
 from .context import inspect_context
-from .evidence import append_record, now, run_log as _log, summarize_records, write_json
+from .evidence import append_record, now, run_log as _log, write_json, write_reports
 from .suites import list_suites
 
 
@@ -277,8 +277,7 @@ def _record_command(
 
 
 def _write_summary(run_dir: Path) -> int:
-    summary, exit_code = summarize_records(run_dir)
-    write_json(run_dir / "summary.json", summary)
+    _, exit_code = write_reports(run_dir)
     return exit_code
 
 
@@ -292,6 +291,7 @@ def run_basic(
     root: Path,
     build_dir: Path,
     machine: str,
+    image: str,
     timeout: int,
     out_dir: Path,
     dry_run: bool,
@@ -310,6 +310,8 @@ def run_basic(
         str(build_dir),
         "--machine",
         machine,
+        "--image",
+        image,
         "--out",
         str(preflight_json),
     ]
@@ -463,6 +465,9 @@ def _run_oeqa(
         _cleanup_process_group(process.pid)
         _stop_bitbake_server(root, build_dir, host_python_bin)
         raise
+    finally:
+        if process.poll() is None:
+            _cleanup_process_group(process.pid)
     status = _status_from_rc(rc)
     _log(f"DONE oeqa-lanes ({status})")
     return rc
@@ -479,7 +484,16 @@ def run_functional(
     dry_run: bool,
     preflight_only: bool = False,
 ) -> int:
-    preflight_rc = run_basic(root, build_dir, machine, timeout_fvp, out_dir, dry_run, True)
+    preflight_rc = run_basic(
+        root,
+        build_dir,
+        machine,
+        image,
+        timeout_fvp,
+        out_dir,
+        dry_run,
+        True,
+    )
     if preflight_rc != 0 or preflight_only:
         return preflight_rc
     host_python = None if dry_run else _select_host_python(out_dir)
@@ -512,7 +526,16 @@ def run_power(
     dry_run: bool,
     preflight_only: bool = False,
 ) -> int:
-    preflight_rc = run_basic(root, build_dir, machine, 0, out_dir, dry_run, True)
+    preflight_rc = run_basic(
+        root,
+        build_dir,
+        machine,
+        image,
+        0,
+        out_dir,
+        dry_run,
+        True,
+    )
     if preflight_rc != 0 or preflight_only:
         return preflight_rc
     host_python = None if dry_run else _select_host_python(out_dir)
@@ -544,6 +567,7 @@ def run_category(args: Any) -> int:
             root,
             build_dir,
             args.machine,
+            args.image,
             args.timeout,
             out_dir,
             args.dry_run,
